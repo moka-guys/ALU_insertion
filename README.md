@@ -4,7 +4,7 @@
 ```
 make build
 
-# or, in cases where you want to remove the cache and create an entirely new docker imaage
+# or, in cases where you want to remove the cache and create an entirely new docker image
 make cleanbuild
 ```
 ## Usage example:
