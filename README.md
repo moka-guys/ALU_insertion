@@ -14,10 +14,10 @@ docker run --rm \
   -v ~/GITHUB/ALLELE_INSERTION/hs37d5.fa.nsq:/app/data/reference.fa.nsq \
   -v $(pwd)/output:/app/output \
   seglh/scramble:latest \
-  --bam /app/data/${SAMPLE_ID}.bam \
+  --bam /app/data/${SAMPLE_ID}.bam \ 
   --bai /app/data/${SAMPLE_ID}.bai
 
-
+Description of docker run options:
 --bam /app/data/NGS625_48.bam        # required: path to BAM file
 --bai /app/data/NGS625_48.bai        # required: path to BAI file
 --window 100                          # default: 50  — coverage analysis window size
