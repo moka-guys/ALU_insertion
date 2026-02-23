@@ -1,4 +1,12 @@
 # ALU_insertion
+## Build instructions
+
+```
+make build
+
+# or, in cases where you want to remove the cache and create an entirely new docker imaage
+make cleanbuild
+```
 ## Usage example:
 
 ```
