@@ -1,5 +1,5 @@
 # ALU_insertion
-Usage example:
+## Usage example:
 
 ```
 BAM=~/GITHUB/ALLELE_INSERTION/NGS625_48_333370_QI_F_VCP1R134Via_Pan4119_S48_R1_001.bam
@@ -19,10 +19,10 @@ docker run --rm \
   --bai /app/data/${SAMPLE_ID}.bai
 ```
 
-Description of docker run options:
---bam /app/data/NGS625_48.bam        # required: path to BAM file
---bai /app/data/NGS625_48.bai        # required: path to BAI file
---window 100                          # default: 50  — coverage analysis window size
+## Docker additional run options:
+|Option|Example input|Description|
+|------|-------------|-----------|
+|--window|100|default: 50  — coverage analysis window size|
 --polyA_window 20                     # default: 10  — polyA detection window size
 --threshold 15.0                      # default: 10.0 — coverage change threshold (%)
 --min_polyA_len 8                     # default: 10  — minimum polyA/T stretch length
