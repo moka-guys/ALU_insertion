@@ -1,6 +1,7 @@
 # ALU_insertion
 Usage example:
 
+```
 BAM=~/GITHUB/ALLELE_INSERTION/NGS625_48_333370_QI_F_VCP1R134Via_Pan4119_S48_R1_001.bam
 SAMPLE_ID=$(basename $BAM | grep -oP 'NGS[^_]+_\d+')
 
@@ -16,6 +17,7 @@ docker run --rm \
   seglh/scramble:latest \
   --bam /app/data/${SAMPLE_ID}.bam \ 
   --bai /app/data/${SAMPLE_ID}.bai
+```
 
 Description of docker run options:
 --bam /app/data/NGS625_48.bam        # required: path to BAM file
