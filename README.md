@@ -20,13 +20,13 @@ docker run --rm \
 ```
 
 ## Docker additional run options:
-|Option|Example input|Description|
+|Option|Default value|Description|
 |------|-------------|-----------|
-|--window|100|default: 50  — coverage analysis window size|
---polyA_window 20                     # default: 10  — polyA detection window size
---threshold 15.0                      # default: 10.0 — coverage change threshold (%)
---min_polyA_len 8                     # default: 10  — minimum polyA/T stretch length
---merge_gap 5                         # default: 1   — max gap for merging nearby variants
---proximity 20                        # default: 10  — max distance from variant to coverage tract
---bed /app/data/my_regions.bed        # default: None — restrict analysis to bed file regions
---verbose                             # default: off — enable detailed logging
+|--window|50|coverage analysis window size|
+|--polyA_window|10|polyA detection window size|
+|--threshold|10.0|coverage change threshold (%)|
+|--min_polyA_len|10|minimum polyA/T stretch length|
+|--merge_gap|1|max gap for merging nearby variants|
+|--proximity|10|max distance from variant to coverage tract|
+|--bed|None|restrict analysis to bed file regions|
+|--verbose|off|enable detailed logging|
