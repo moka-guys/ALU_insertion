@@ -641,7 +641,6 @@ def main():
         f.write(f"Total calls:             {total_calls}\n")
         f.write(f"High confidence calls:   {high_confidence_calls}\n")
         f.write(f"Other calls:             {total_calls - high_confidence_calls}\n")
-        f.write(f"High confidence rate:    {high_confidence_calls / total_calls * 100:.1f}%\n" if total_calls > 0 else f"High confidence rate:    N/A\n")
 
     # Print high confidence results to terminal
     print_results_table(df_high_confidence)
