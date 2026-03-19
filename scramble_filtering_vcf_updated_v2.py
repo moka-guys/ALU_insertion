@@ -629,6 +629,20 @@ def main():
     csv_hc_path = f"/app/output/{args.id}_ALU_analysis_high_confidence.csv"
     df_high_confidence.to_csv(csv_hc_path, index=False)
 
+    # Save summary statistics to text file
+    summary_path = f"/app/output/{args.id}_ALU_analysis_summary.txt"
+    total_calls = len(df)
+    high_confidence_calls = len(df_high_confidence)
+    
+    with open(summary_path, 'w') as f:
+        f.write(f"ALU Insertion Analysis Summary\n")
+        f.write(f"==============================\n")
+        f.write(f"Sample ID:               {args.id}\n")
+        f.write(f"Total calls:             {total_calls}\n")
+        f.write(f"High confidence calls:   {high_confidence_calls}\n")
+        f.write(f"Other calls:             {total_calls - high_confidence_calls}\n")
+        f.write(f"High confidence rate:    {high_confidence_calls / total_calls * 100:.1f}%\n" if total_calls > 0 else f"High confidence rate:    N/A\n")
+
     # Print high confidence results to terminal
     print_results_table(df_high_confidence)
 
