@@ -249,9 +249,20 @@ def is_true_high_tract(
     flank_size: int = 5,
     min_fold: float = 1.1 # this should be softcoded acc. to the threshold value.
 ) -> bool:
-    """
-    Validates that a HIGH coverage tract is a true local enrichment by ensuring
+    """ Validates that a HIGH coverage tract is a true local enrichment by ensuring
     coverage within the tract exceeds coverage on both flanks.
+
+    Parameters:
+        tract: A list of CoverageTract objects (see CoverageTract class definition above).
+        coverage: A dictionary containing the calculated coverage values for a series of base positions: 
+                In this case, a series of base positions in a coverage window about a candidate ALU insertion.
+        flank_size: The number of bases beyond a high coverage tract to consider coverage for, in either direction.
+        min_fold: The minimum fold-change between the high coverage tract and its flanks needed to consider the high tract a 'true' high tract.
+
+    Returns:
+        False: If the coverage difference between the high coverage tract and its flanks does not exceed the min_fold value.
+        True: If the coverage difference between the high coverage tract and both of its flanks exceeds the min fold value.
+
     """
 
     tract_vals = [
