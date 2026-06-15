@@ -38,3 +38,5 @@ docker run --rm \
 |--proximity|10|max distance from variant to coverage tract|
 |--bed|None|restrict analysis to bed file regions|
 |--verbose|off|enable detailed logging|
+
+make build | bash ./test_command.sh
