@@ -246,50 +246,26 @@ def detect_coverage_tracts(
 def is_true_high_tract(
     tract: CoverageTract,
     coverage: Dict[int, int],
-    flank_size: int = 5,
-    min_fold: float = 1.1 # this should be softcoded acc. to the threshold value.
+    threshold: float,
 ) -> bool:
-    """ Validates that a HIGH coverage tract is a true local enrichment by ensuring
-    coverage within the tract exceeds coverage on both flanks.
-
-    Parameters:
-        tract: A list of CoverageTract objects (see CoverageTract class definition above).
-        coverage: A dictionary containing the calculated coverage values for a series of base positions: 
-                In this case, a series of base positions in a coverage window about a candidate ALU insertion.
-        flank_size: The number of bases beyond a high coverage tract to consider coverage for, in either direction.
-        min_fold: The minimum fold-change between the high coverage tract and its flanks needed to consider the high tract a 'true' high tract.
-
-    Returns:
-        False: If the coverage difference between the high coverage tract and its flanks does not exceed the min_fold value.
-        True: If the coverage difference between the high coverage tract and both of its flanks exceeds the min fold value.
-
     """
+    Validates a HIGH coverage tract by requiring a significant step change
+    on BOTH the left boundary (entering the tract) and the right boundary
+    (leaving the tract), each exceeding the coverage threshold.
+    """
+    left_cov = coverage.get(tract.start - 1, 0)
+    entry_cov = coverage.get(tract.start, 0)
 
-    tract_vals = [
-        coverage[p] for p in range(tract.start, tract.end + 1)
-        if coverage[p] > 0
-    ]
-    if not tract_vals:
+    right_cov = coverage.get(tract.end + 1, 0)
+    exit_cov = coverage.get(tract.end, 0)
+
+    if left_cov == 0 or right_cov == 0:
         return False
 
-    tract_med = statistics.median(tract_vals)
+    left_step = ((entry_cov - left_cov) / left_cov) * 100
+    right_step = ((exit_cov - right_cov) / right_cov) * 100  # should be negative
 
-    left_vals = [
-        coverage[p] for p in range(tract.start - flank_size, tract.start)
-        if coverage.get(p, 0) > 0
-    ]
-    right_vals = [
-        coverage[p] for p in range(tract.end + 1, tract.end + flank_size + 1)
-        if coverage.get(p, 0) > 0
-    ]
-
-    if not left_vals or not right_vals:
-        return False
-
-    return (
-        tract_med >= min_fold * statistics.median(left_vals) and
-        tract_med >= min_fold * statistics.median(right_vals)
-    )
+    return left_step >= threshold and right_step <= -threshold
 
 
 # -------------------------------
@@ -302,41 +278,41 @@ def count_polyA_reads(
     end: int,
     min_polyA_len: int
 ) -> int:
-    """ Counts the number of polyA within a specified region.
-
-    Parameters:
-        bam: Pysam alignment file object for the sample.
-        chrom: Chromosome to count polyA tracts in.
-        start: Inclusive start coordinate to count polyA tracts from.
-        end: Inclusive end coordinate to count polyA tracts to.
-        min_polyA_len: The minimum length a polyA tract must be to be counted.   
-
-    Returns:
-        polyA_count: An integer count of the number of polyA tracts found within the specified region.
     """
-
-    poly_pattern = re.compile(f"A{{{min_polyA_len},}}|T{{{min_polyA_len},}}")
+    Counts reads with soft-clipped polyA/T tails near the candidate position.
+    Only soft-clipped sequence is examined, as novel ALU tails appear there
+    rather than in the reference-aligned portion of the read.
+    """
+    poly_pattern = re.compile(f"(?:A{{{min_polyA_len},}}|T{{{min_polyA_len},}})")
     polyA_count = 0
-    
+
     try:
         for read in bam.fetch(chrom, start, end):
-            if read.is_unmapped or read.query_sequence is None:
+            if read.is_unmapped or read.query_sequence is None or not read.cigartuples:
                 continue
-            
+
             seq = read.query_sequence.upper()
-            ref_positions = read.get_reference_positions()
-            
-            aligned_seq = [
-                seq[qpos] for qpos, rpos in enumerate(ref_positions)
-                if rpos is not None and start <= rpos < end
-            ]
-            
-            if aligned_seq and poly_pattern.search("".join(aligned_seq)):
-                polyA_count += 1
-                
+            cigar = read.cigartuples  # list of (op, length) tuples
+
+            # Extract soft-clipped segments (cigar op 4 = SOFT_CLIP)
+            # Left clip
+            if cigar[0][0] == 4:
+                clip_len = cigar[0][1]
+                clipped_seq = seq[:clip_len]
+                if poly_pattern.search(clipped_seq):
+                    polyA_count += 1
+                    continue
+
+            # Right clip
+            if cigar[-1][0] == 4:
+                clip_len = cigar[-1][1]
+                clipped_seq = seq[-clip_len:]
+                if poly_pattern.search(clipped_seq):
+                    polyA_count += 1
+
     except Exception as e:
         logger.warning(f"Error counting polyA reads for {chrom}:{start}-{end}: {e}")
-    
+
     return polyA_count
 
 
@@ -386,7 +362,7 @@ def analyse_event(
 
     high_tracts = [
         t for t in coverage_tracts
-        if t.direction == "HIGH" and is_true_high_tract(t, cov)
+        if t.direction == "HIGH" and is_true_high_tract(t, cov, threshold)
     ]
 
     polyA_reads = count_polyA_reads(
@@ -632,26 +608,13 @@ def main():
     print_results_table(df)
 
     # Save results to CSV
-    csv_path = f"/app/output/{args.id}_ALU_analysis.csv"
+    csv_path = f"output/{args.id}_ALU_analysis.csv"
     df.to_csv(csv_path, index=False)
 
     # Creating a separate CSV containing only ALUs where coverage abnormalities and polyAs were detected
     df_high_confidence = df[df['Evidence'] == 'BOTH']
-    csv_hc_path = f"/app/output/{args.id}_ALU_analysis_high_confidence.csv"
+    csv_hc_path = f"output/{args.id}_ALU_analysis_high_confidence.csv"
     df_high_confidence.to_csv(csv_hc_path, index=False)
-
-    # Save summary statistics to text file
-    summary_path = f"/app/output/{args.id}_ALU_analysis_summary.txt"
-    total_calls = len(df)
-    high_confidence_calls = len(df_high_confidence)
-    
-    with open(summary_path, 'w') as f:
-        f.write(f"ALU Insertion Analysis Summary\n")
-        f.write(f"==============================\n")
-        f.write(f"Sample ID:               {args.id}\n")
-        f.write(f"Total calls:             {total_calls}\n")
-        f.write(f"High confidence calls:   {high_confidence_calls}\n")
-        f.write(f"Other calls:             {total_calls - high_confidence_calls}\n")
 
     # Print high confidence results to terminal
     print_results_table(df_high_confidence)
