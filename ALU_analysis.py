@@ -18,8 +18,28 @@ def run_command(command, check=True):
         print(f"stderr: {e.stderr}", file=sys.stderr)
         raise
 
+def project_scan(dx_project_id):
+    # extract run name from project id
+    project_describe = subprocess.run(["dx", "describe", dx_project_id], capture_output=True, text=True)
+    project_name = re.search(r"(NGS\d+[AB]?)", project_describe.stdout)
+
+    # open the dx project via the CLI
+    cmd = ["dx", "select", dx_project_id]
+    subprocess.run(cmd)
+
+    # capture a list of R134 files present in the output directory of the dx project
+    result = subprocess.run(["dx", "ls", "output/*R134*"], capture_output=True, text=True)
+    r134 = result.stdout.splitlines()
+    r134.sort()
+
+    return r134
+
+
 def main():
     """ Runs ALU detection and analysis on LDLR for the provided sample BAM. """
+
+    # put project selection here, I think. move the below functionality to another python script. call that one here,
+    # once per bam file.
 
     parser = argparse.ArgumentParser(description='Run Scramble analysis and ALU filtering')
     parser.add_argument('--bam', help='Input BAM file path')
@@ -32,6 +52,7 @@ def main():
     parser.add_argument("--proximity", type=int, default=10, help="Max distance (bp) from variant to keep tract")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     parser.add_argument("--bed", help='Optional input BED file to limit what genome regions are analysed', default=None)
+    parser.add_argument("--dx_project_id", help='ID for DNAnexus project we want to run the ALU analysis on', default = None)
 
     args = parser.parse_args()
 

@@ -362,7 +362,7 @@ def analyse_event(
 
     high_tracts = [
         t for t in coverage_tracts
-        if t.direction == "HIGH" and is_true_high_tract(t, cov, threshold)
+        if t.direction == "HIGH" and is_true_high_tract(t, cov, coverage_threshold)
     ]
 
     polyA_reads = count_polyA_reads(

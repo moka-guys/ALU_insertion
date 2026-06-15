@@ -13,4 +13,5 @@ docker run --rm \
   -v $(pwd)/output:/app/output \
   seglh/scramble:latest \
   --bam /app/data/${SAMPLE_ID}.bam \
-  --bai /app/data/${SAMPLE_ID}.bai
+  --bai /app/data/${SAMPLE_ID}.bai \
+  --dx_project_id project-J522GFQ0B3vbkvXv7VzgqJXF
