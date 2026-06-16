@@ -35,8 +35,16 @@ docker run --rm \
 |--threshold|10.0|coverage change threshold (%)|
 |--min_polyA_len|10|minimum polyA/T stretch length|
 |--merge_gap|1|max gap for merging nearby variants|
-|--proximity|10|max distance from variant to coverage tract|
 |--bed|None|restrict analysis to bed file regions|
 |--verbose|off|enable detailed logging|
 
+
+## To test docker locally
+make cleanbuild | bash ./test_command.sh
 make build | bash ./test_command.sh
+
+## To test scramble_filtering_vcf_updated_v2.py locally - replace test bam path
+python scramble_filtering_vcf_updated_v2.py \
+  --vcf "output/NGS625_48_ALU_ins.vcf" \
+  --bam "/home/isabeljohnsondavies/GITHUB/ALLELE_INSERTION/NGS625_48_333370_QI_F_VCP1R134Via_Pan4119_S48_R1_001.bam" \ 
+  --id "$SAMPLE_ID"
