@@ -164,7 +164,6 @@ def compute_coverage(
 
     return coverage
 
-
 def detect_coverage_tracts(
     coverage: Dict[int, int],
     pos: int,
@@ -173,9 +172,9 @@ def detect_coverage_tracts(
     min_length: int = 3,
     min_coverage: int = 30
 ) -> List[CoverageTract]:
-    """ Detect regions of significant coverage change where coverage change occurs within a window. 
-    Ignores tracts starting or ending at zero coverage. 
-
+    """ Detect regions of significant coverage change where coverage change occurs within a window.
+    Tracts are defined by sharp increases (start) and sharp decreases (end).
+    
     Parameters:
         coverage: A dictionary containing the calculated coverage values for a series of base positions.
         pos: Genomic coordinate of a candidate ALU.
@@ -205,7 +204,11 @@ def detect_coverage_tracts(
         
         if abs(pct_change) >= threshold:
             direction = "HIGH" if pct_change > 0 else "LOW"
-            tract_start = positions[i - 1]
+            
+            # For HIGH tracts: start at positions[i] (where coverage becomes high)
+            # For LOW tracts: start at positions[i] (where coverage becomes low)
+            tract_start = positions[i]
+            
             tract_end = positions[i]
             last_cov = curr_cov
             j = i + 1
@@ -216,8 +219,13 @@ def detect_coverage_tracts(
                     break
                 
                 step = ((next_cov - last_cov) / last_cov) * 100 if last_cov else 0
+                
+                # Check for the reverse change
                 if (direction == "HIGH" and step <= -threshold) or \
                    (direction == "LOW" and step >= threshold):
+                    # For HIGH tracts: end at positions[j-1] (last high position)
+                    # For LOW tracts: end at positions[j-1] (last low position)
+                    tract_end = positions[j - 1]
                     break
                 
                 tract_end = positions[j]
@@ -226,6 +234,7 @@ def detect_coverage_tracts(
             
             length = tract_end - tract_start + 1
             max_cov = max(coverage[p] for p in range(tract_start, tract_end + 1))
+            
             if length >= min_length and max_cov >= min_coverage:
                 tracts.append(
                     CoverageTract(
@@ -239,33 +248,47 @@ def detect_coverage_tracts(
             i = j
         else:
             i += 1
-
+    
     return tracts
-
 
 def is_true_high_tract(
     tract: CoverageTract,
     coverage: Dict[int, int],
     threshold: float,
+    debug: bool = False,
 ) -> bool:
     """
-    Validates a HIGH coverage tract by requiring a significant step change
-    on BOTH the left boundary (entering the tract) and the right boundary
-    (leaving the tract), each exceeding the coverage threshold.
+    Validates a HIGH coverage tract by verifying sharp step changes at boundaries.
     """
     left_cov = coverage.get(tract.start - 1, 0)
     entry_cov = coverage.get(tract.start, 0)
-
     right_cov = coverage.get(tract.end + 1, 0)
     exit_cov = coverage.get(tract.end, 0)
 
+    if debug:
+        print(f"Tract: {tract.start}-{tract.end}")
+        print(f"Left boundary: pos={tract.start-1} cov={left_cov}, pos={tract.start} cov={entry_cov}")
+        print(f"Right boundary: pos={tract.end} cov={exit_cov}, pos={tract.end+1} cov={right_cov}")
+
     if left_cov == 0 or right_cov == 0:
+        if debug:
+            print(f"REJECTED: zero coverage on boundary (left_cov={left_cov}, right_cov={right_cov})")
         return False
 
     left_step = ((entry_cov - left_cov) / left_cov) * 100
-    right_step = ((exit_cov - right_cov) / right_cov) * 100  # should be negative
+    
+    # This gives the percentage DROP from the tract to the right flank
+    right_step = ((right_cov - exit_cov) / exit_cov) * 100
 
-    return left_step >= threshold and right_step <= -threshold
+    if debug:
+        print(f"left_step={left_step:.1f}% (need >= {threshold})")
+        print(f"right_step={right_step:.1f}% (need <= -{threshold})")
+
+    result = left_step >= threshold and right_step <= -threshold
+    if debug:
+        print(f"RESULT: {result}")
+    
+    return result
 
 
 # -------------------------------
@@ -366,11 +389,11 @@ def analyse_event(
         min_polyA_len
     )
 
-    if high_tracts and polyA_reads > 5: # do we want a pure number of polyA tails, or as a percentage of present reads? what is the percentage for our known ALUs?
+    if high_tracts and polyA_reads > 50: # do we want a pure number of polyA tails, or as a percentage of present reads? what is the percentage for our known ALUs?
         evidence = "BOTH"
     elif high_tracts:
         evidence = "COVERAGE_ONLY"
-    elif polyA_reads > 5:
+    elif polyA_reads > 50:
         evidence = "POLYA_ONLY"
     else:
         evidence = "NONE"
