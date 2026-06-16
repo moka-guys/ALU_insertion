@@ -49,7 +49,6 @@ def main():
     parser.add_argument("--threshold", type=float, default=10.0, help="Coverage change threshold (%)")
     parser.add_argument("--min_polyA_len", type=int, default=10, help="Minimum polyA/T stretch length")
     parser.add_argument("--merge_gap", type=int, default=1, help="Maximum gap for merging nearby variants")
-    parser.add_argument("--proximity", type=int, default=10, help="Max distance (bp) from variant to keep tract")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     parser.add_argument("--bed", help='Optional input BED file to limit what genome regions are analysed', default=None)
     parser.add_argument("--dx_project_id", help='ID for DNAnexus project we want to run the ALU analysis on', default = None)
@@ -103,7 +102,6 @@ def main():
         f"--threshold {args.threshold} "
         f"--min_polyA_len {args.min_polyA_len} "
         f"--merge_gap {args.merge_gap} "
-        f"--proximity {args.proximity} "
         f"--id {sample_id}"
     )
 
