@@ -46,5 +46,4 @@ make build | bash ./test_command.sh
 ## To test scramble_filtering_vcf_updated_v2.py locally - replace test bam path
 python scramble_filtering_vcf_updated_v2.py \
   --vcf "output/NGS625_48_ALU_ins.vcf" \
-  --bam "/home/isabeljohnsondavies/GITHUB/ALLELE_INSERTION/NGS625_48_333370_QI_F_VCP1R134Via_Pan4119_S48_R1_001.bam" \ 
-  --id "$SAMPLE_ID"
+  --bam "/home/isabeljohnsondavies/GITHUB/ALLELE_INSERTION/NGS625_48_333370_QI_F_VCP1R134Via_Pan4119_S48_R1_001.bam"
