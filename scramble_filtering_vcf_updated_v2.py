@@ -326,8 +326,7 @@ def analyse_event(
     coverage_window: int,
     coverage_threshold: float,
     min_polyA_len: int,
-    polyA_window: int,
-    proximity: int = 10
+    polyA_window: int
 ) -> EventAnalysis:
     """ Performs nearby coverage and PolyA analysis on a specified genomic coordinate.
 
@@ -339,7 +338,6 @@ def analyse_event(
         coverage_threshold: Percentage value used as the threshold at which base-to-base coverage changes are considered significant.
         min_polyA_len: The minimum length a polyA tract must be to be counted.   
         polyA_window: Window size used for plus/minus PolyA counting around a position.
-        proximity: Plus/minus distance within which one end of an abnormal coverage tract must fall to be considered nearby to a position.
 
     Returns:
         An EventAnalysis object containing information as described in the EventAnalysis class definition.
@@ -354,11 +352,6 @@ def analyse_event(
     coverage_tracts = detect_coverage_tracts(
         cov, pos, coverage_window, coverage_threshold
     )
-
-    coverage_tracts = [
-        t for t in coverage_tracts
-        if abs(t.start - pos) <= proximity or abs(t.end - pos) <= proximity
-    ]
 
     high_tracts = [
         t for t in coverage_tracts
@@ -401,7 +394,6 @@ def analyse_vcf_to_dataframe(
     threshold: float = 10.0,
     min_polyA_len: int = 10,
     merge_gap: int = 1,
-    proximity: int = 10,
     verbose: bool = False
 ) -> pd.DataFrame:
     """ Returns analysis results as a pandas DataFrame.
@@ -414,7 +406,6 @@ def analyse_vcf_to_dataframe(
         threshold: Percentage value used as the threshold at which base-to-base coverage changes are considered significant.
         min_polyA_len: The minimum length a polyA tract must be to be counted.
         merge_gap: Maximum gap for merging nearby variants
-        proximity: Plus/minus distance within which one end of an abnormal coverage tract must fall to be considered nearby to a position.
         verbose: Enable verbose logging
 
     Returns:
@@ -455,8 +446,7 @@ def analyse_vcf_to_dataframe(
             window,
             threshold,
             min_polyA_len,
-            polyA_window,
-            proximity
+            polyA_window
         )
 
         # Format coverage tract info for output
@@ -578,7 +568,6 @@ def main():
     parser.add_argument("--threshold", type=float, default=10.0)
     parser.add_argument("--min_polyA_len", type=int, default=10)
     parser.add_argument("--merge_gap", type=int, default=1)
-    parser.add_argument("--proximity", type=int, default=10)
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--id", type=str)
 
@@ -600,7 +589,6 @@ def main():
             threshold=args.threshold,
             min_polyA_len=args.min_polyA_len,
             merge_gap=args.merge_gap,
-            proximity=args.proximity,
             verbose=args.verbose,
     )
 
@@ -608,12 +596,12 @@ def main():
     print_results_table(df)
 
     # Save results to CSV
-    csv_path = f"output/{args.id}_ALU_analysis.csv"
+    csv_path = f"/app/output/{args.id}_ALU_analysis.csv"
     df.to_csv(csv_path, index=False)
 
     # Creating a separate CSV containing only ALUs where coverage abnormalities and polyAs were detected
     df_high_confidence = df[df['Evidence'] == 'BOTH']
-    csv_hc_path = f"output/{args.id}_ALU_analysis_high_confidence.csv"
+    csv_hc_path = f"/app/output/{args.id}_ALU_analysis_high_confidence.csv"
     df_high_confidence.to_csv(csv_hc_path, index=False)
 
     # Print high confidence results to terminal
