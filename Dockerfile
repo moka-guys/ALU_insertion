@@ -24,8 +24,22 @@ RUN apt-get update && apt-get upgrade -y && \
         libnss-sss \
         libssl-dev \
         libxml2-dev \
-        zlib1g-dev && \
+        libuv1-dev \
+        zlib1g-dev \
+        ncbi-blast+ \
+        r-base \
+        r-bioc-rsamtools \
+        r-bioc-biostrings \
+        r-cran-optparse \
+        r-cran-stringr && \
     rm -rf /var/lib/apt/lists/*
+
+# Install rBLAST via devtools, same as SCRAMble
+RUN Rscript -e " \
+    install.packages('devtools', repos='https://cloud.r-project.org'); \
+    install.packages('remotes', repos='https://cloud.r-project.org'); \
+    remotes::install_github('mhahsler/rBLAST') \
+"
 
 # Build htslib from source
 RUN git clone --branch 1.21 --recurse-submodules https://github.com/samtools/htslib.git && \
@@ -51,24 +65,13 @@ RUN wget --quiet https://github.com/conda-forge/miniforge/releases/latest/downlo
     bash /tmp/miniforge.sh -b -p /opt/conda && \
     rm /tmp/miniforge.sh
 
-# Configure conda channels
-RUN /opt/conda/bin/conda config --add channels bioconda && \
-    /opt/conda/bin/conda config --set channel_priority flexible
-
-# Install everything via conda — R, R packages, and Python dependencies all
-# go into the conda environment so they are available in the runtime stage
+# Install python dependencies
 RUN /opt/conda/bin/conda install -y \
-        r-base \
-        r-rblast=0.99.1 \
-        bioconductor-rsamtools \
-        bioconductor-pwalign \
-        r-optparse \
-        r-stringr \
         python=3.11 \
-        pysam \
-        pandas \
-        blast && \
-    /opt/conda/bin/conda clean -afy
+        pandas && \
+    /opt/conda/bin/conda clean -afy && \
+    pip install pysam
+
 
 # Copy source code and build scramble
 RUN mkdir -p /app
@@ -95,7 +98,14 @@ RUN apt-get update && apt-get install -y \
         libssl3 \
         libxml2 \
         zlib1g \
-        libnss-sss && \
+        libnss-sss \
+        ncbi-blast+ \
+        libuv1-dev \
+        r-base \
+        r-bioc-rsamtools \
+        r-bioc-biostrings \
+        r-cran-optparse \
+        r-cran-stringr && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy htslib shared libs from builder
@@ -107,6 +117,9 @@ RUN echo "/usr/local/lib" > /etc/ld.so.conf.d/local.conf && ldconfig
 
 # Copy Miniforge from builder — includes R, all R packages, Python, pysam, pandas
 COPY --from=builder /opt/conda /opt/conda
+
+# Copy R packages installed in builder (rBLAST)
+COPY --from=builder /usr/local/lib/R /usr/local/lib/R
 
 # Copy compiled cluster_identifier binary
 COPY --from=builder /app/cluster_identifier/src/build/cluster_identifier /usr/local/bin/
