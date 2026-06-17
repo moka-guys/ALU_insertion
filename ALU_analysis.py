@@ -32,7 +32,6 @@ def project_scan(dx_project_id):
     r134 = result.stdout.splitlines()
     r134.sort()
 
-    print(r134)
     return r134
 
 def sequence_search(r134_file):
@@ -70,6 +69,8 @@ def main():
 
     # project scan using project id parameter
     r134_list = project_scan(args.dx_project_id)
+    for file in r134_list:
+        sequence_search(file)
 
     # Extract sample ID from BAM file name
     match = re.search(r"(NGS[^_]+_\d+)", args.bam)
