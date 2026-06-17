@@ -70,7 +70,7 @@ RUN /opt/conda/bin/conda install -y \
         python=3.11 \
         pandas && \
     /opt/conda/bin/conda clean -afy && \
-    pip install pysam
+    pip install pysam dxpy
 
 
 # Copy source code and build scramble
