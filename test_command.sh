@@ -21,7 +21,7 @@ docker run --rm \
   seglh/scramble:latest \
   --bam /app/data/${SAMPLE_ID}.bam \
   --bai /app/data/${SAMPLE_ID}.bai \
-  --dx_project_id project-J522GFQ0B3vbkvXv7VzgqJXF
+  --dx_project_id project-J522GFQ0B3vbkvXv7VzgqJXF 
 
 #########################################################################################
 
@@ -42,7 +42,7 @@ docker run --rm \
   seglh/scramble:latest \
   --bam /app/data/${SAMPLE_ID}.bam \
   --bai /app/data/${SAMPLE_ID}.bai \
-  --dx_project_id project-J522GFQ0B3vbkvXv7VzgqJXF
+  --dx_project_id project-J522GFQ0B3vbkvXv7VzgqJXF 
 
 ######################################################################################
 
@@ -63,7 +63,7 @@ docker run --rm \
   seglh/scramble:latest \
   --bam /app/data/${SAMPLE_ID}.bam \
   --bai /app/data/${SAMPLE_ID}.bai \
-  --dx_project_id project-J522GFQ0B3vbkvXv7VzgqJXF
+  --dx_project_id project-J522GFQ0B3vbkvXv7VzgqJXF 
 
 ###########################################################################################
 
@@ -84,7 +84,7 @@ docker run --rm \
   seglh/scramble:latest \
   --bam /app/data/${SAMPLE_ID}.bam \
   --bai /app/data/${SAMPLE_ID}.bai \
-  --dx_project_id project-J522GFQ0B3vbkvXv7VzgqJXF
+  --dx_project_id project-J522GFQ0B3vbkvXv7VzgqJXF 
 
 # test command for local
 # python scramble_filtering_vcf_updated_v2.py \
