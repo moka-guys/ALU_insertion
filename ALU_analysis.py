@@ -32,6 +32,7 @@ def project_scan(dx_project_id):
     r134 = result.stdout.splitlines()
     r134.sort()
 
+    print(r134)
     return r134
 
 
@@ -46,7 +47,7 @@ def main():
     parser.add_argument('--bai', help='Input BAI file path')
     parser.add_argument("--window", type=int, default=50, help="Coverage analysis window size (bp)")
     parser.add_argument("--polyA_window", type=int, default=10, help="PolyA detection window size (bp)")
-    parser.add_argument("--threshold", type=float, default=10.0, help="Coverage change threshold (%)")
+    parser.add_argument("--threshold", type=float, default=15.0, help="Coverage change threshold (%)")
     parser.add_argument("--min_polyA_len", type=int, default=10, help="Minimum polyA/T stretch length")
     parser.add_argument("--merge_gap", type=int, default=1, help="Maximum gap for merging nearby variants")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
