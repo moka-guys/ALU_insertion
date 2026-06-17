@@ -47,3 +47,45 @@ make build && bash ./test_command.sh
 python scramble_filtering_vcf_updated_v2.py \
   --vcf "output/NGS625_48_ALU_ins.vcf" \
   --bam "/home/isabeljohnsondavies/GITHUB/ALLELE_INSERTION/NGS625_48_333370_QI_F_VCP1R134Via_Pan4119_S48_R1_001.bam"
+
+## for DNAnexus applet - do not do same auth appraoch:
+# The environment variables are already set by DNAnexus
+# Just pass them through to Docker
+
+docker run --rm \
+  -e DX_SECURITY_CONTEXT="$DX_SECURITY_CONTEXT" \
+  -e DX_APISERVER_HOST="$DX_APISERVER_HOST" \
+  -e DX_APISERVER_PROTOCOL="$DX_APISERVER_PROTOCOL" \
+  -v $(realpath $BAM):/app/data/${SAMPLE_ID}.bam \
+  -v $(realpath ${BAM%.bam}.bai):/app/data/${SAMPLE_ID}.bai \
+  -v $(realpath $REF_DIR/hs37d5.fa):/app/data/reference.fa \
+  -v $(realpath $REF_DIR/hs37d5.fa.fai):/app/data/reference.fa.fai \
+  -v $(realpath $REF_DIR/hs37d5.fa.nhr):/app/data/reference.fa.nhr \
+  -v $(realpath $REF_DIR/hs37d5.fa.nin):/app/data/reference.fa.nin \
+  -v $(realpath $REF_DIR/hs37d5.fa.nsq):/app/data/reference.fa.nsq \
+  -v $(pwd)/output:/app/output \
+  seglh/scramble:latest \
+  --bam /app/data/${SAMPLE_ID}.bam \
+  --bai /app/data/${SAMPLE_ID}.bai \
+  --dx_project_id "$DX_PROJECT_CONTEXT_ID"
+
+or
+
+#!/bin/bash
+# code.sh for DNAnexus applet
+
+# Pass all current environment variables to Docker
+docker run --rm \
+  --env-file <(env) \
+  -v $(realpath $BAM):/app/data/${SAMPLE_ID}.bam \
+  -v $(realpath ${BAM%.bam}.bai):/app/data/${SAMPLE_ID}.bai \
+  -v $(realpath $REF_DIR/hs37d5.fa):/app/data/reference.fa \
+  -v $(realpath $REF_DIR/hs37d5.fa.fai):/app/data/reference.fa.fai \
+  -v $(realpath $REF_DIR/hs37d5.fa.nhr):/app/data/reference.fa.nhr \
+  -v $(realpath $REF_DIR/hs37d5.fa.nin):/app/data/reference.fa.nin \
+  -v $(realpath $REF_DIR/hs37d5.fa.nsq):/app/data/reference.fa.nsq \
+  -v $(pwd)/output:/app/output \
+  seglh/scramble:latest \
+  --bam /app/data/${SAMPLE_ID}.bam \
+  --bai /app/data/${SAMPLE_ID}.bai \
+  --dx_project_id "$DX_PROJECT_CONTEXT_ID"
