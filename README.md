@@ -40,8 +40,8 @@ docker run --rm \
 
 
 ## To test docker locally
-make cleanbuild | bash ./test_command.sh
-make build | bash ./test_command.sh
+make cleanbuild && bash ./test_command.sh
+make build && bash ./test_command.sh
 
 ## To test scramble_filtering_vcf_updated_v2.py locally - replace test bam path
 python scramble_filtering_vcf_updated_v2.py \
