@@ -91,3 +91,30 @@ docker run --rm \
 #     --vcf "output/NGS625_48_ALU_ins.vcf" \
 #     --bam "/home/isabeljohnsondavies/GITHUB/ALLELE_INSERTION/NGS625_48_333370_QI_F_VCP1R134Via_Pan4119_S48_R1_001.bam" \
 #     --id "$SAMPLE_ID"
+
+DX_TOKEN=$(python3 -c "
+import json
+data = json.load(open('$HOME/.dnanexus_config/environment.json'))
+print(data)
+inner = json.loads(data['DX_SECURITY_CONTEXT'])
+print(inner['auth_token'])
+")
+
+docker run -e DX_SECURITY_CONTEXT="$(cat ~/.dnanexus_config/environment.json | python3 -c 'import sys, json; print(json.load(sys.stdin)["DX_SECURITY_CONTEXT"])')" <your_image_name> <your_command>
+
+docker run --rm \
+  -e DX_SECURITY_CONTEXT="$(cat ~/.dnanexus_config/environment.json | python3 -c 'import sys, json; print(json.load(sys.stdin)["DX_SECURITY_CONTEXT"])')" \
+  -e DX_APISERVER_HOST="api.dnanexus.com" \
+  -e DX_APISERVER_PROTOCOL="https" \
+  -v $(realpath $BAM):/app/data/${SAMPLE_ID}.bam \
+  -v $(realpath ${BAM%.bam}.bai):/app/data/${SAMPLE_ID}.bai \
+  -v $(realpath $REF_DIR/hs37d5.fa):/app/data/reference.fa \
+  -v $(realpath $REF_DIR/hs37d5.fa.fai):/app/data/reference.fa.fai \
+  -v $(realpath $REF_DIR/hs37d5.fa.nhr):/app/data/reference.fa.nhr \
+  -v $(realpath $REF_DIR/hs37d5.fa.nin):/app/data/reference.fa.nin \
+  -v $(realpath $REF_DIR/hs37d5.fa.nsq):/app/data/reference.fa.nsq \
+  -v $(pwd)/output:/app/output \
+  seglh/scramble:latest \
+  --bam /app/data/${SAMPLE_ID}.bam \
+  --bai /app/data/${SAMPLE_ID}.bai \
+  --dx_project_id project-J522GFQ0B3vbkvXv7VzgqJXF
