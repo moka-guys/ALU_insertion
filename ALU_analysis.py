@@ -35,6 +35,18 @@ def project_scan(dx_project_id):
     print(r134)
     return r134
 
+def sequence_search(r134_file):
+    # filter R134 files to those that are non-refined bam files
+    if ("bam" in file and "refined" not in file):
+        # save bam and bai file names and paths to variables.
+        bam_name = file
+        bai_name = bam_name.replace("bam","bai")
+
+        bam_path = "output/" + bam_name
+        bai_path = "output/" + bai_name
+
+        print(bam_path)
+
 
 def main():
     """ Runs ALU detection and analysis on LDLR for the provided sample BAM. """
@@ -55,6 +67,9 @@ def main():
     parser.add_argument("--dx_project_id", help='ID for DNAnexus project we want to run the ALU analysis on', default = None)
 
     args = parser.parse_args()
+
+    # project scan using project id parameter
+    r134_list = project_scan(args.dx_project_id)
 
     # Extract sample ID from BAM file name
     match = re.search(r"(NGS[^_]+_\d+)", args.bam)
