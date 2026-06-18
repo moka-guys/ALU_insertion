@@ -141,7 +141,7 @@ def scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_p
     run_command(f"bcftools index /app/output/{sample_id}.vcf.gz")
     run_command(f"bcftools view -i 'ALT=\"<INS:ME:ALU>\"' /app/output/{sample_id}.vcf.gz -o /app/output/{sample_id}_ALU_ins.vcf")
 
-    if args.bed:
+    if bed:
         run_command(f"bgzip /app/output/{sample_id}_ALU_ins.vcf -f")
         run_command(f"bcftools index /app/output/{sample_id}_ALU_ins.vcf.gz")
         run_command(f"bcftools view -R {bed} /app/output/{sample_id}_ALU_ins.vcf.gz -o /app/output/{sample_id}_specified_region_ALU_ins.vcf")
@@ -183,7 +183,9 @@ def alu_analysis(dx_project_id,bed,window,polyA_window,threshold,min_polyA_len,m
                 raise ValueError(f"Could not extract sample ID from BAM file: {bam_name}")
 
             # Run sequence search analysis
+            print("starting sequence search")
             sequence_search(bam_id,bai_id,sample_id,bam_name,bai_name)
+            print("sequence search done")
 
             # Run scramble analysis
             scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_polyA_len,merge_gap)

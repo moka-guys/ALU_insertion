@@ -13,8 +13,6 @@ docker run --rm \
   -e DX_SECURITY_CONTEXT="$DX_SECURITY_CONTEXT" \
   -e DX_APISERVER_HOST="$DX_APISERVER_HOST" \
   -e DX_APISERVER_PROTOCOL="$DX_APISERVER_PROTOCOL" \
-  -v $(realpath $BAM):/app/data/${SAMPLE_ID}.bam \
-  -v $(realpath ${BAM%.bam}.bai):/app/data/${SAMPLE_ID}.bai \
   -v $(realpath $REF_DIR/hs37d5.fa):/app/data/reference.fa \
   -v $(realpath $REF_DIR/hs37d5.fa.fai):/app/data/reference.fa.fai \
   -v $(realpath $REF_DIR/hs37d5.fa.nhr):/app/data/reference.fa.nhr \
