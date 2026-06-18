@@ -34,55 +34,88 @@ def project_scan(dx_project_id):
 
     return r134
 
-def sequence_search(r134_file):
-    # filter R134 files to those that are non-refined bam files
-    if ("bam" in file and "refined" not in file):
-        # save bam and bai file names and paths to variables.
-        bam_name = file
-        bai_name = bam_name.replace("bam","bai")
+def process_bam(r134_file):
+    # save bam and bai file names and paths to variables.
+    bam_name = r134_file
+    bai_name = bam_name.replace("bam","bai")
 
-        bam_path = "output/" + bam_name
-        bai_path = "output/" + bai_name
+    bam_path = "output/" + bam_name
+    bai_path = "output/" + bai_name
 
-        print(bam_path)
+    # extract bam file dx id
+    bam_describe = subprocess.run(["dx", "describe", bam_path], capture_output=True, text=True)
+    bam_describe = bam_describe.stdout
+    pattern = "file-[A-Za-z0-9]{24}"
+    bam_id = re.findall(pattern,bam_describe)
 
+    # extract bai file dx id
+    bai_describe = subprocess.run(["dx", "describe", bai_path], capture_output=True, text=True)
+    bai_describe = bai_describe.stdout
+    bai_id = re.findall(pattern,bai_describe)
 
-def main():
-    """ Runs ALU detection and analysis on LDLR for the provided sample BAM. """
+    return bam_name, bai_name, bam_id[0], bai_id[0]
 
-    # put project selection here, I think. move the below functionality to another python script. call that one here,
-    # once per bam file.
+def sequence_search(bam_id, bai_id,sample_id):
+    # download bam and bai files
+    cmd = ["dx", "download", bam_id[0], "--no-progress"]
+    subprocess.run(cmd)
+    cmd = ["dx", "download", bai_id[0], "--no-progress"]
+    subprocess.run(cmd)
+    # search for the ALU right flanking sequence in the sample bam file.
+    # if counts at a single position exceed 100, save to output file
+    right_seq = "GGCCGGGCGCGGTGGCTCACGCCTGTAATCC"
+            
+    # longer right flank seq
+    long_right_seq = "TGGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGG"
 
-    parser = argparse.ArgumentParser(description='Run Scramble analysis and ALU filtering')
-    parser.add_argument('--bam', help='Input BAM file path')
-    parser.add_argument('--bai', help='Input BAI file path')
-    parser.add_argument("--window", type=int, default=50, help="Coverage analysis window size (bp)")
-    parser.add_argument("--polyA_window", type=int, default=10, help="PolyA detection window size (bp)")
-    parser.add_argument("--threshold", type=float, default=15.0, help="Coverage change threshold (%)")
-    parser.add_argument("--min_polyA_len", type=int, default=10, help="Minimum polyA/T stretch length")
-    parser.add_argument("--merge_gap", type=int, default=1, help="Maximum gap for merging nearby variants")
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
-    parser.add_argument("--bed", help='Optional input BED file to limit what genome regions are analysed', default=None)
-    parser.add_argument("--dx_project_id", help='ID for DNAnexus project we want to run the ALU analysis on', default = None)
+    # left flank seq we see in the ng683 samples, and not the ngs625 sample
+    ngs683_38_left_flank_seq = "CGACATTGCGCCACTGCAGTCGGCAGTCCGGCCTGGGCGACAGAGCGAGACTCCATCTCAAAAAAAAAATAATAATAA"
+            
+    #seq_used_by_oxford 
+    ox_seq = "AGAACTGGCGGCTTAAGAACATCAACAGCATTGGCCGGGCGCGGTGGCTCACG"
+                
+    # testing a few combinations on our positive controls
+    for seq, name, threshold in zip(
+        [right_seq, long_right_seq, ox_seq, ngs683_38_left_flank_seq],
+        ["500", "long_right", "ox", "left_flank"],
+        [500, 100, 100, 100]):                
+        positions = []
+                
+        with pysam.AlignmentFile(bam_name, "rb") as bam:
+            for read in bam.fetch():
+                if read.query_sequence and seq in read.query_sequence:
+                    match_start = read.query_sequence.index(seq)  # 0-based read position
 
-    args = parser.parse_args()
+                    # get_aligned_pairs maps each read position to its genomic position
+                    aligned_pairs = read.get_aligned_pairs(matches_only=False)
 
-    # project scan using project id parameter
-    r134_list = project_scan(args.dx_project_id)
-    for file in r134_list:
-        sequence_search(file)
+                    last_genome_pos = None
+                    last_chrom = None
+                    for read_pos, genome_pos in aligned_pairs:
+                        if genome_pos is not None:
+                            last_genome_pos = genome_pos
+                            last_chrom = read.reference_name
+                        if read_pos == match_start:
+                            if genome_pos is not None:
+                                positions.append(f"{read.reference_name}:{genome_pos + 1}")
+                            elif last_genome_pos is not None:
+                                # seq falls in an insertion — use the last mapped genomic position
+                                positions.append(f"{last_chrom}:{last_genome_pos + 1}")
+                            break
 
-    # Extract sample ID from BAM file name
-    match = re.search(r"(NGS[^_]+_\d+)", args.bam)
-    if match:
-        sample_id = match.group(1)
-        print(sample_id)
-    else:
-        raise ValueError(f"Could not extract sample ID from BAM file: {args.bam}")
+        results = [(pos, count) for pos, count in Counter(positions).most_common() if count > threshold]
 
+        if results:
+            with open(f"/app/output/{sample_id}_output_{name}.txt", "w") as out:
+                for pos, count in results:
+                    out.write(f"{count} {pos}\n")
+
+        print(f"--- subanalysis {name} complete for {sample_id}!")
+
+def scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_polyA_len,merge_gap):
     print(f"Running cluster_identifier...")
     run_command(
-        f"cluster_identifier -m 10 -s 3 {args.bam} > /app/output/{sample_id}.clusters.txt"
+        f"cluster_identifier -m 10 -s 3 {bam_name} > /app/output/{sample_id}.clusters.txt"
     )
 
     print(f"Running SCRAMble.R...")
@@ -104,7 +137,7 @@ def main():
     if args.bed:
         run_command(f"bgzip /app/output/{sample_id}_ALU_ins.vcf -f")
         run_command(f"bcftools index /app/output/{sample_id}_ALU_ins.vcf.gz")
-        run_command(f"bcftools view -R {args.bed} /app/output/{sample_id}_ALU_ins.vcf.gz -o /app/output/{sample_id}_specified_region_ALU_ins.vcf")
+        run_command(f"bcftools view -R {bed} /app/output/{sample_id}_ALU_ins.vcf.gz -o /app/output/{sample_id}_specified_region_ALU_ins.vcf")
         vcf_path = f"/app/output/{sample_id}_specified_region_ALU_ins.vcf"
     else:
         vcf_path = f"/app/output/{sample_id}_ALU_ins.vcf"
@@ -113,19 +146,134 @@ def main():
     python_command = (
         f"python /app/scramble_filtering_vcf_updated_v2.py "
         f"--vcf {vcf_path} "
-        f"--bam {args.bam} "
-        f"--window {args.window} "
-        f"--polyA_window {args.polyA_window} "
-        f"--threshold {args.threshold} "
-        f"--min_polyA_len {args.min_polyA_len} "
-        f"--merge_gap {args.merge_gap} "
+        f"--bam {bam_name} "
+        f"--window {window} "
+        f"--polyA_window {polyA_window} "
+        f"--threshold {threshold} "
+        f"--min_polyA_len {min_polyA_len} "
+        f"--merge_gap {merge_gap} "
         f"--id {sample_id}"
     )
 
-    if args.verbose:
-        python_command += " --verbose"
-
     run_command(python_command)
+
+
+def alu_analysis(dx_project_id,bed,window,polyA_window,threshold,min_polyA_len,merge_gap):
+    r134_list = project_scan(args.dx_project_id)
+    for file in r134_list:
+        
+        # filter R134 files to those that are non-refined bam files
+        # extract bam and bai ids.
+        if ("bam" in file and "refined" not in file):
+            # Extract bam and bai name and ids
+            bam_name,bai_name,bam_id,bai_id = process_bam(file)
+            
+            # Extract sample ID from BAM file name
+            match = re.search(r"(NGS[^_]+_\d+)", bam_name)
+            if match:
+                sample_id = match.group(1)
+                print(sample_id)
+            else:
+                raise ValueError(f"Could not extract sample ID from BAM file: {bam_name}")
+
+            # Run sequence search analysis
+            sequence_search(bam_id,bai_id,sample_id)
+
+            # Run scramble analysis
+            scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_polyA_len,merge_gap)
+
+
+def main():
+    """ Runs ALU detection and analysis on LDLR for the provided sample BAM. """
+
+    parser = argparse.ArgumentParser(description='Run Scramble analysis and ALU filtering')
+    #parser.add_argument('--bam', help='Input BAM file path')
+    #parser.add_argument('--bai', help='Input BAI file path')
+    parser.add_argument("--window", type=int, default=50, help="Coverage analysis window size (bp)")
+    parser.add_argument("--polyA_window", type=int, default=10, help="PolyA detection window size (bp)")
+    parser.add_argument("--threshold", type=float, default=15.0, help="Coverage change threshold (%)")
+    parser.add_argument("--min_polyA_len", type=int, default=10, help="Minimum polyA/T stretch length")
+    parser.add_argument("--merge_gap", type=int, default=1, help="Maximum gap for merging nearby variants")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--bed", help='Optional input BED file to limit what genome regions are analysed', default=None)
+    parser.add_argument("--dx_project_id", help='ID for DNAnexus project we want to run the ALU analysis on', default = None)
+
+    args = parser.parse_args()
+
+    # if the above functions are all cool, this might be all that's required...
+    alu_analysis(args.dx_project_id,args.bed,args.window,args.polyA_window,args.threshold,args.min_polyA_len,args.merge_gap)
+
+    # # project scan using project id parameter
+    # r134_list = project_scan(args.dx_project_id)
+    # # for each r134 bam file, extract info + run analyses
+    # for file in r134_list:
+    #     # filter R134 files to those that are non-refined bam files
+    #     if ("bam" in file and "refined" not in file):
+    #         bam_name,bai_name,bam_id,bai_id = process_bam(file)
+    #         # Extract sample ID from BAM file name
+    #         match = re.search(r"(NGS[^_]+_\d+)", bam_name)
+    #         if match:
+    #             sample_id = match.group(1)
+    #             print(sample_id)
+    #         else:
+    #             raise ValueError(f"Could not extract sample ID from BAM file: {bam_name}")
+            
+        
+
+    # # Extract sample ID from BAM file name
+    # match = re.search(r"(NGS[^_]+_\d+)", args.bam)
+    # if match:
+    #     sample_id = match.group(1)
+    #     print(sample_id)
+    # else:
+    #     raise ValueError(f"Could not extract sample ID from BAM file: {args.bam}")
+
+    # print(f"Running cluster_identifier...")
+    # run_command(
+    #     f"cluster_identifier -m 10 -s 3 {args.bam} > /app/output/{sample_id}.clusters.txt"
+    # )
+
+    # print(f"Running SCRAMble.R...")
+    # run_command(
+    #     f"Rscript --vanilla /app/cluster_analysis/bin/SCRAMble.R "
+    #     f"--out-name /app/output/{sample_id} "
+    #     f"--cluster-file /app/output/{sample_id}.clusters.txt "
+    #     f"--install-dir /app/cluster_analysis/bin "
+    #     f"--mei-refs /app/cluster_analysis/resources/MEI_consensus_seqs.fa "
+    #     f"--ref /app/data/reference.fa "
+    #     f"--eval-meis"
+    # )
+
+    # print(f"Running bcftools filtering...")
+    # run_command(f"bgzip /app/output/{sample_id}.vcf -f")
+    # run_command(f"bcftools index /app/output/{sample_id}.vcf.gz")
+    # run_command(f"bcftools view -i 'ALT=\"<INS:ME:ALU>\"' /app/output/{sample_id}.vcf.gz -o /app/output/{sample_id}_ALU_ins.vcf")
+
+    # if args.bed:
+    #     run_command(f"bgzip /app/output/{sample_id}_ALU_ins.vcf -f")
+    #     run_command(f"bcftools index /app/output/{sample_id}_ALU_ins.vcf.gz")
+    #     run_command(f"bcftools view -R {args.bed} /app/output/{sample_id}_ALU_ins.vcf.gz -o /app/output/{sample_id}_specified_region_ALU_ins.vcf")
+    #     vcf_path = f"/app/output/{sample_id}_specified_region_ALU_ins.vcf"
+    # else:
+    #     vcf_path = f"/app/output/{sample_id}_ALU_ins.vcf"
+
+    # print(f"Running ALU analysis...")
+    # python_command = (
+    #     f"python /app/scramble_filtering_vcf_updated_v2.py "
+    #     f"--vcf {vcf_path} "
+    #     f"--bam {args.bam} "
+    #     f"--window {args.window} "
+    #     f"--polyA_window {args.polyA_window} "
+    #     f"--threshold {args.threshold} "
+    #     f"--min_polyA_len {args.min_polyA_len} "
+    #     f"--merge_gap {args.merge_gap} "
+    #     f"--id {sample_id}"
+    # )
+
+    # if args.verbose:
+    #     python_command += " --verbose"
+
+    #run_command(python_command)
 
 
 if __name__ == "__main__":
