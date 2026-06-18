@@ -1,4 +1,5 @@
 seglh-scramble*
+seglh-alu*
 test_command.shcluster_identifier/src/htslib
 cluster_identifier/src/htslib
 output/

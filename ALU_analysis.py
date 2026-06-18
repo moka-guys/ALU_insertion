@@ -2,6 +2,9 @@ import subprocess
 import sys
 import argparse
 import re
+import pysam
+import os
+from collections import Counter
 
 def run_command(command, check=True):
     """ Executes a command and returns the result."""
@@ -28,8 +31,12 @@ def project_scan(dx_project_id):
     subprocess.run(cmd)
 
     # capture a list of R134 files present in the output directory of the dx project
-    result = subprocess.run(["dx", "ls", "output/*R134*"], capture_output=True, text=True)
-    r134 = result.stdout.splitlines()
+    # result = subprocess.run(["dx", "ls", "output/*R134*"], capture_output=True, text=True)
+    # r134 = result.stdout.splitlines()
+    # r134.sort()
+    result = subprocess.run(["dx", "ls", "output/"], capture_output=True, text=True)
+    all_files = result.stdout.splitlines()
+    r134 = [f for f in all_files if "R134" in f]
     r134.sort()
 
     return r134
@@ -55,11 +62,11 @@ def process_bam(r134_file):
 
     return bam_name, bai_name, bam_id[0], bai_id[0]
 
-def sequence_search(bam_id, bai_id,sample_id):
+def sequence_search(bam_id, bai_id,sample_id, bam_name,bai_name):
     # download bam and bai files
-    cmd = ["dx", "download", bam_id[0], "--no-progress"]
+    cmd = ["dx", "download", bam_id, "--no-progress"]
     subprocess.run(cmd)
-    cmd = ["dx", "download", bai_id[0], "--no-progress"]
+    cmd = ["dx", "download", bai_id, "--no-progress"]
     subprocess.run(cmd)
     # search for the ALU right flanking sequence in the sample bam file.
     # if counts at a single position exceed 100, save to output file
@@ -146,7 +153,6 @@ def scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_p
     python_command = (
         f"python /app/scramble_filtering_vcf_updated_v2.py "
         f"--vcf {vcf_path} "
-        f"--bam {bam_name} "
         f"--window {window} "
         f"--polyA_window {polyA_window} "
         f"--threshold {threshold} "
@@ -159,7 +165,7 @@ def scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_p
 
 
 def alu_analysis(dx_project_id,bed,window,polyA_window,threshold,min_polyA_len,merge_gap):
-    r134_list = project_scan(args.dx_project_id)
+    r134_list = project_scan(dx_project_id)
     for file in r134_list:
         
         # filter R134 files to those that are non-refined bam files
@@ -177,7 +183,7 @@ def alu_analysis(dx_project_id,bed,window,polyA_window,threshold,min_polyA_len,m
                 raise ValueError(f"Could not extract sample ID from BAM file: {bam_name}")
 
             # Run sequence search analysis
-            sequence_search(bam_id,bai_id,sample_id)
+            sequence_search(bam_id,bai_id,sample_id,bam_name,bai_name)
 
             # Run scramble analysis
             scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_polyA_len,merge_gap)

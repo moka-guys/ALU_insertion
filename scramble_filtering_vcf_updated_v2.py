@@ -585,7 +585,6 @@ def main():
     """
 
     parser.add_argument("--vcf", required=True)
-    parser.add_argument("--bam", required=True)
     parser.add_argument("--window", type=int, default=50)
     parser.add_argument("--polyA_window", type=int, default=10)
     parser.add_argument("--threshold", type=float, default=10.0)

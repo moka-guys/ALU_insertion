@@ -22,8 +22,6 @@ docker run --rm \
   -v $(realpath $REF_DIR/hs37d5.fa.nsq):/app/data/reference.fa.nsq \
   -v $(pwd)/output:/app/output \
   seglh/alu_analysis:latest \
-  --bam /app/data/${SAMPLE_ID}.bam \
-  --bai /app/data/${SAMPLE_ID}.bai \
   --dx_project_id project-GkkQ3G00f66x87q8k6zBvbXv
 
 
