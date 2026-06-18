@@ -2,7 +2,7 @@ BUILD    := $(shell git describe --tags --always --dirty)
 DIR      := $(shell pwd)
 
 REGISTRY := seglh
-APP      := scramble
+APP      := alu_analysis
 IMG      := $(REGISTRY)/$(APP)
 IMG_VERSIONED := $(IMG):$(BUILD)
 IMG_LATEST    := $(IMG):latest
