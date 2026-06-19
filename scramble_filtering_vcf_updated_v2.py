@@ -438,11 +438,6 @@ def analyse_vcf_to_dataframe(
     if verbose:
         logger.setLevel(logging.DEBUG)
 
-    # Validate inputs
-    # valid, msg = validate_inputs(vcf_path, bam_path)
-    # if not valid:
-    #     raise FileNotFoundError(msg)
-
     # Open files
     vcf = pysam.VariantFile(vcf_path)
     bam = pysam.AlignmentFile(bam_path, "rb")
@@ -516,61 +511,6 @@ def print_results_table(df: pd.DataFrame):
     print("Chrom\tStat\tEnd\tHighCoverageTracts\tPolyAReads\tEvidence")
     for _, row in df.iterrows():
         print(f"{row['Chrom']}\t{row['Start']}\t{row['End']}\t{row['HighCoverageTracts']}\t{row['PolyAReads']}\t{row['Evidence']}")
-
-
-# -------------------------------
-# Output Functions
-# -------------------------------
-# def print_header():
-#     """ Prints header of output table. """
-#     print("Chrom\tStart\tEnd\tHighCoverageTracts\tPolyAReads\tEvidence")
-
-
-# def print_result(chrom: str, start: int, end: int, analysis: EventAnalysis):
-#      """ Prints results of candidate ALU analysis
-
-#     Parameters:
-#         chrom: Chromosome of candidate ALU.
-#         start: Start coordinate of candidate ALU.
-#         end: End coordinate of candidate ALU.
-#         analysis: EventAnalysis object for candidate ALU, containing information on whether nearby coverage and/or polyA tracts were detected. 
-#     """
-#     coverage_str = (
-#         ",".join(str(t) for t in analysis.high_tracts)
-#         if analysis.high_tracts else "NA"
-#     )
-#     print(f"{chrom}\t{start}\t{end}\t{coverage_str}\t{analysis.polyA_reads}\t{analysis.evidence}")
-
-
-# -------------------------------
-# Input Validation
-# -------------------------------
-# def validate_inputs(vcf_path: str, bam_path: str) -> Tuple[bool, str]:
-#     """ Validates whether a vcf and bam file exist and have indexes.
-
-#     Parameters:
-#         vcf_path: File path of VCF file.
-#         bam_path: file path of BAM file.
-
-#     Returns:
-#         Returns a Boolean indicating whether the files and indexes were found. 
-#         If False, includes error message indicating files were not found or indexing needed.
-#     """
-
-#     vcf_file = Path(vcf_path)
-#     bam_file = Path(bam_path)
-    
-#     if not vcf_file.exists():
-#         return False, f"VCF file not found: {vcf_path}"
-#     if not bam_file.exists():
-#         return False, f"BAM file not found: {bam_path}"
-    
-#     if not (Path(str(bam_file) + ".bai").exists() or
-#             Path(str(bam_file).replace(".bam", ".bai")).exists()):
-#         return False, f"BAM index not found. Please run: samtools index {bam_path}"
-
-#     return True, ""
-
 
 # -------------------------------
 # Main
