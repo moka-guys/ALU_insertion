@@ -23,6 +23,11 @@ build: version
 	@echo "Saved $(TAR)"
 
 push:
+	docker build -f Dockerfile \
+		-t $(IMG_VERSIONED) .
+	docker tag $(IMG_VERSIONED) $(IMG_LATEST)
+	docker save $(IMG_VERSIONED) | gzip > $(TAR)
+	@echo "Saved $(TAR)"
 	docker push $(IMG_VERSIONED)
 	docker push $(IMG_LATEST)
 
