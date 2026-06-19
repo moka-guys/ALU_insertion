@@ -439,9 +439,9 @@ def analyse_vcf_to_dataframe(
         logger.setLevel(logging.DEBUG)
 
     # Validate inputs
-    valid, msg = validate_inputs(vcf_path, bam_path)
-    if not valid:
-        raise FileNotFoundError(msg)
+    # valid, msg = validate_inputs(vcf_path, bam_path)
+    # if not valid:
+    #     raise FileNotFoundError(msg)
 
     # Open files
     vcf = pysam.VariantFile(vcf_path)
@@ -545,31 +545,31 @@ def print_results_table(df: pd.DataFrame):
 # -------------------------------
 # Input Validation
 # -------------------------------
-def validate_inputs(vcf_path: str, bam_path: str) -> Tuple[bool, str]:
-    """ Validates whether a vcf and bam file exist and have indexes.
+# def validate_inputs(vcf_path: str, bam_path: str) -> Tuple[bool, str]:
+#     """ Validates whether a vcf and bam file exist and have indexes.
 
-    Parameters:
-        vcf_path: File path of VCF file.
-        bam_path: file path of BAM file.
+#     Parameters:
+#         vcf_path: File path of VCF file.
+#         bam_path: file path of BAM file.
 
-    Returns:
-        Returns a Boolean indicating whether the files and indexes were found. 
-        If False, includes error message indicating files were not found or indexing needed.
-    """
+#     Returns:
+#         Returns a Boolean indicating whether the files and indexes were found. 
+#         If False, includes error message indicating files were not found or indexing needed.
+#     """
 
-    vcf_file = Path(vcf_path)
-    bam_file = Path(bam_path)
+#     vcf_file = Path(vcf_path)
+#     bam_file = Path(bam_path)
     
-    if not vcf_file.exists():
-        return False, f"VCF file not found: {vcf_path}"
-    if not bam_file.exists():
-        return False, f"BAM file not found: {bam_path}"
+#     if not vcf_file.exists():
+#         return False, f"VCF file not found: {vcf_path}"
+#     if not bam_file.exists():
+#         return False, f"BAM file not found: {bam_path}"
     
-    if not (Path(str(bam_file) + ".bai").exists() or
-            Path(str(bam_file).replace(".bam", ".bai")).exists()):
-        return False, f"BAM index not found. Please run: samtools index {bam_path}"
+#     if not (Path(str(bam_file) + ".bai").exists() or
+#             Path(str(bam_file).replace(".bam", ".bai")).exists()):
+#         return False, f"BAM index not found. Please run: samtools index {bam_path}"
 
-    return True, ""
+#     return True, ""
 
 
 # -------------------------------
@@ -585,6 +585,7 @@ def main():
     """
 
     parser.add_argument("--vcf", required=True)
+    parser.add_argument("--bam", required=True)
     parser.add_argument("--window", type=int, default=50)
     parser.add_argument("--polyA_window", type=int, default=10)
     parser.add_argument("--threshold", type=float, default=10.0)
@@ -597,10 +598,10 @@ def main():
     if args.verbose:
         logger.setLevel(logging.DEBUG)
 
-    valid, msg = validate_inputs(args.vcf, args.bam)
-    if not valid:
-        logger.error(msg)
-        sys.exit(1)
+    # valid, msg = validate_inputs(args.vcf, args.bam)
+    # if not valid:
+    #     logger.error(msg)
+    #     sys.exit(1)
 
     # Run analysis
     df = analyse_vcf_to_dataframe(

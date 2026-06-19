@@ -130,4 +130,4 @@ COPY --from=builder /app /app
 # Create output directory
 RUN mkdir -p /app/output
 
-ENTRYPOINT ["python", "/app/ALU_analysis.py"]
+ENTRYPOINT ["python","-u", "/app/ALU_analysis.py"]

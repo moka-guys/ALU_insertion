@@ -30,10 +30,6 @@ def project_scan(dx_project_id):
     cmd = ["dx", "select", dx_project_id]
     subprocess.run(cmd)
 
-    # capture a list of R134 files present in the output directory of the dx project
-    # result = subprocess.run(["dx", "ls", "output/*R134*"], capture_output=True, text=True)
-    # r134 = result.stdout.splitlines()
-    # r134.sort()
     result = subprocess.run(["dx", "ls", "output/"], capture_output=True, text=True)
     all_files = result.stdout.splitlines()
     r134 = [f for f in all_files if "R134" in f]
@@ -66,8 +62,11 @@ def sequence_search(bam_id, bai_id,sample_id, bam_name,bai_name):
     # download bam and bai files
     cmd = ["dx", "download", bam_id, "--no-progress"]
     subprocess.run(cmd)
+    print("bam file successfully downloaded")
     cmd = ["dx", "download", bai_id, "--no-progress"]
     subprocess.run(cmd)
+    print("bai file successfully downloaded")
+
     # search for the ALU right flanking sequence in the sample bam file.
     # if counts at a single position exceed 100, save to output file
     right_seq = "GGCCGGGCGCGGTGGCTCACGCCTGTAATCC"
@@ -113,7 +112,8 @@ def sequence_search(bam_id, bai_id,sample_id, bam_name,bai_name):
         results = [(pos, count) for pos, count in Counter(positions).most_common() if count > threshold]
 
         if results:
-            with open(f"/app/output/{sample_id}_output_{name}.txt", "w") as out:
+            #with open(f"{sample_id}_output_{name}.txt", "w") as out: # for local testing
+            with open(f"/app/output/{sample_id}_output_{name}.txt", "w") as out: # for in image testing
                 for pos, count in results:
                     out.write(f"{count} {pos}\n")
 
@@ -153,6 +153,7 @@ def scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_p
     python_command = (
         f"python /app/scramble_filtering_vcf_updated_v2.py "
         f"--vcf {vcf_path} "
+        f"--bam {bam_name} "
         f"--window {window} "
         f"--polyA_window {polyA_window} "
         f"--threshold {threshold} "
@@ -164,7 +165,7 @@ def scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_p
     run_command(python_command)
 
 
-def alu_analysis(dx_project_id,bed,window,polyA_window,threshold,min_polyA_len,merge_gap):
+def alu_analysis(dx_project_id,bed,window,polyA_window,threshold,min_polyA_len,merge_gap):  
     r134_list = project_scan(dx_project_id)
     for file in r134_list:
         
@@ -184,11 +185,18 @@ def alu_analysis(dx_project_id,bed,window,polyA_window,threshold,min_polyA_len,m
 
             # Run sequence search analysis
             print("starting sequence search")
+            print(bam_name + " + " + bai_name)
             sequence_search(bam_id,bai_id,sample_id,bam_name,bai_name)
             print("sequence search done")
 
             # Run scramble analysis
             scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_polyA_len,merge_gap)
+
+            os.remove(bam_name)
+            os.remove(bai_name)
+
+            print(f"Analysis of {sample_id} completed!")
+
 
 
 def main():
@@ -207,6 +215,13 @@ def main():
     parser.add_argument("--dx_project_id", help='ID for DNAnexus project we want to run the ALU analysis on', default = None)
 
     args = parser.parse_args()
+
+    # create output directory
+    try:
+        os.makedirs("/app/output/", exist_ok=True)
+        print(f"/app/output/ exists and is writable")
+    except Exception as e:
+        print(f"Cannot create /app/output/: {e}")
 
     # if the above functions are all cool, this might be all that's required...
     alu_analysis(args.dx_project_id,args.bed,args.window,args.polyA_window,args.threshold,args.min_polyA_len,args.merge_gap)
