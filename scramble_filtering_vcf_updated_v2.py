@@ -614,16 +614,17 @@ def main():
     print_results_table(df)
 
     # Save results to CSV
-    csv_path = f"/app/output/{args.id}_ALU_analysis.csv"
-    df.to_csv(csv_path, index=False)
+    #csv_path = f"/app/output/{args.id}_ALU_analysis.csv"
+    #df.to_csv(csv_path, index=False)
 
     # Creating a separate CSV containing only ALUs where coverage abnormalities and polyAs were detected
     df_high_confidence = df[df['Evidence'] == 'BOTH']
-    csv_hc_path = f"/app/output/{args.id}_ALU_analysis_high_confidence.csv"
-    df_high_confidence.to_csv(csv_hc_path, index=False)
+    if not df_high_confidence.empty:
+        csv_hc_path = f"/app/output/{args.id}_ALU_analysis_high_confidence.csv"
+        df_high_confidence.to_csv(csv_hc_path, index=False)
 
-    # Print high confidence results to terminal
-    print_results_table(df_high_confidence)
+        # Print high confidence results to terminal
+        print_results_table(df_high_confidence)
 
     logger.info("Analysis complete!")
 
