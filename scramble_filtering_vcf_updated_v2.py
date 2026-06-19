@@ -598,11 +598,6 @@ def main():
     if args.verbose:
         logger.setLevel(logging.DEBUG)
 
-    # valid, msg = validate_inputs(args.vcf, args.bam)
-    # if not valid:
-    #     logger.error(msg)
-    #     sys.exit(1)
-
     # Run analysis
     df = analyse_vcf_to_dataframe(
             vcf_path=args.vcf,
@@ -630,36 +625,6 @@ def main():
     # Print high confidence results to terminal
     print_results_table(df_high_confidence)
 
-
-
-    # vcf = pysam.VariantFile(args.vcf)
-    # bam = pysam.AlignmentFile(args.bam, "rb")
-
-    # records = list(vcf.fetch())
-    # clusters = cluster_variants(records, args.merge_gap)
-
-    # print_header()
-    # for cluster in clusters:
-    #     chrom = cluster[0].chrom
-    #     start = min(r.pos for r in cluster)
-    #     end = max(r.pos for r in cluster)
-    #     rep_pos = representative_position(cluster)
-
-    #     analysis = analyse_event(
-    #         bam,
-    #         chrom,
-    #         rep_pos,
-    #         args.window,
-    #         args.threshold,
-    #         args.min_polyA_len,
-    #         args.polyA_window,
-    #         args.proximity
-    #     )
-
-    #     print_result(chrom, start, end, analysis)
-
-    # bam.close()
-    # vcf.close()
     logger.info("Analysis complete!")
 
 
