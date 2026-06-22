@@ -199,6 +199,7 @@ def scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_p
 
 import threading
 import queue
+from concurrent.futures import ThreadPoolExecutor
 
 def downloader_thread(bam_files, result_queue):
     """Runs continuously in the background: downloads one sample after another."""
@@ -210,6 +211,22 @@ def downloader_thread(bam_files, result_queue):
         print(f"bai file successfully downloaded: {bai_name}")
         result_queue.put((bam_name, bai_name, bam_id, bai_id))
     result_queue.put(None)  # sentinel: signals "no more downloads coming"
+
+def process_one_sample(item, bed, window, polyA_window, threshold, min_polyA_len, merge_gap):
+    bam_name, bai_name, bam_id, bai_id = item
+    match = re.search(r"(NGS[^_]+_\d+)", bam_name)
+    if match:
+        sample_id = match.group(1)
+        print(sample_id)
+    else:
+        raise ValueError(f"Could not extract sample ID from BAM file: {bam_name}")
+    print(f"starting sequence search for {sample_id}")
+    sequence_search(bam_id, bai_id, sample_id, bam_name, bai_name)
+    print(f"sequence search done for {sample_id}")
+    scramble_analysis(bam_name, sample_id, bed, window, polyA_window, threshold, min_polyA_len, merge_gap)
+    os.remove(bam_name)
+    os.remove(bai_name)
+    print(f"Analysis of {sample_id} completed!")
 
 def alu_analysis(dx_project_id, bed, window, polyA_window, threshold, min_polyA_len, merge_gap):
     r134_list = project_scan(dx_project_id)
@@ -223,32 +240,22 @@ def alu_analysis(dx_project_id, bed, window, polyA_window, threshold, min_polyA_
     dl_thread = threading.Thread(target=downloader_thread, args=(bam_files, result_queue))
     dl_thread.start()
 
-    while True:
-        item = result_queue.get()
-        if item is None:
-            break  # all downloads finished and consumed
+    futures = []
+    with ThreadPoolExecutor(max_works=max_concurrent) as executor:
+        while True:
+            item = result_queue.get()
+            if item is None:
+                break  # all downloads finished and consumed
+            futures.append(
+                executor.submit(
+                    process_one_sample, item, bed, window, polyA_window, threshold, min_polyA_len, merge_gap
+            ))
 
-        bam_name, bai_name, bam_id, bai_id = item
-
-        match = re.search(r"(NGS[^_]+_\d+)", bam_name)
-        if match:
-            sample_id = match.group(1)
-            print(sample_id)
-        else:
-            raise ValueError(f"Could not extract sample ID from BAM file: {bam_name}")
-
-        print("starting sequence search")
-        print(bam_name + " + " + bai_name)
-        sequence_search(bam_id, bai_id, sample_id, bam_name, bai_name)
-        print("sequence search done")
-
-        scramble_analysis(bam_name, sample_id, bed, window, polyA_window, threshold, min_polyA_len, merge_gap)
-
-        os.remove(bam_name)
-        os.remove(bai_name)
-        print(f"Analysis of {sample_id} completed!")
+        for f in futures:
+            f.result()
 
     dl_thread.join()
+    
 
 
 def main():
