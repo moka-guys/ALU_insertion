@@ -241,7 +241,7 @@ def alu_analysis(dx_project_id, bed, window, polyA_window, threshold, min_polyA_
     dl_thread.start()
 
     futures = []
-    with ThreadPoolExecutor(max_works=max_concurrent) as executor:
+    with ThreadPoolExecutor(max_workers=max_concurrent) as executor:
         while True:
             item = result_queue.get()
             if item is None:
