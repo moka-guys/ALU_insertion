@@ -228,7 +228,7 @@ def process_one_sample(item, bed, window, polyA_window, threshold, min_polyA_len
     os.remove(bai_name)
     print(f"Analysis of {sample_id} completed!")
 
-def alu_analysis(dx_project_id, bed, window, polyA_window, threshold, min_polyA_len, merge_gap):
+def alu_analysis(dx_project_id, bed, window, polyA_window, threshold, min_polyA_len, merge_gap, max_concurrent=3):
     r134_list = project_scan(dx_project_id)
     bam_files = [f for f in r134_list if "bam" in f and "refined" not in f]
 
