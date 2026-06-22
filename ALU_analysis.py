@@ -60,12 +60,12 @@ def process_bam(r134_file):
 
 def sequence_search(bam_id, bai_id,sample_id, bam_name,bai_name):
     # download bam and bai files
-    cmd = ["dx", "download", bam_id, "--no-progress"]
-    subprocess.run(cmd)
-    print("bam file successfully downloaded")
-    cmd = ["dx", "download", bai_id, "--no-progress"]
-    subprocess.run(cmd)
-    print("bai file successfully downloaded")
+    #cmd = ["dx", "download", bam_id, "--no-progress"]
+    #subprocess.run(cmd)
+    #print("bam file successfully downloaded")
+    #cmd = ["dx", "download", bai_id, "--no-progress"]
+    #subprocess.run(cmd)
+    #print("bai file successfully downloaded")
 
     # search for the ALU right flanking sequence in the sample bam file.
     # if counts at a single position exceed 100, save to output file
@@ -165,38 +165,90 @@ def scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_p
     run_command(python_command)
 
 
-def alu_analysis(dx_project_id,bed,window,polyA_window,threshold,min_polyA_len,merge_gap):  
-    r134_list = project_scan(dx_project_id)
-    for file in r134_list:
+# def alu_analysis(dx_project_id,bed,window,polyA_window,threshold,min_polyA_len,merge_gap):  
+#     r134_list = project_scan(dx_project_id)
+#     for file in r134_list:
         
-        # filter R134 files to those that are non-refined bam files
-        # extract bam and bai ids.
-        if ("bam" in file and "refined" not in file):
-            # Extract bam and bai name and ids
-            bam_name,bai_name,bam_id,bai_id = process_bam(file)
+#         # filter R134 files to those that are non-refined bam files
+#         # extract bam and bai ids.
+#         if ("bam" in file and "refined" not in file):
+#             # Extract bam and bai name and ids
+#             bam_name,bai_name,bam_id,bai_id = process_bam(file)
             
-            # Extract sample ID from BAM file name
-            match = re.search(r"(NGS[^_]+_\d+)", bam_name)
-            if match:
-                sample_id = match.group(1)
-                print(sample_id)
-            else:
-                raise ValueError(f"Could not extract sample ID from BAM file: {bam_name}")
+#             # Extract sample ID from BAM file name
+#             match = re.search(r"(NGS[^_]+_\d+)", bam_name)
+#             if match:
+#                 sample_id = match.group(1)
+#                 print(sample_id)
+#             else:
+#                 raise ValueError(f"Could not extract sample ID from BAM file: {bam_name}")
 
-            # Run sequence search analysis
-            print("starting sequence search")
-            print(bam_name + " + " + bai_name)
-            sequence_search(bam_id,bai_id,sample_id,bam_name,bai_name)
-            print("sequence search done")
+#             # Run sequence search analysis
+#             print("starting sequence search")
+#             print(bam_name + " + " + bai_name)
+#             sequence_search(bam_id,bai_id,sample_id,bam_name,bai_name)
+#             print("sequence search done")
 
-            # Run scramble analysis
-            scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_polyA_len,merge_gap)
+#             # Run scramble analysis
+#             scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_polyA_len,merge_gap)
 
-            os.remove(bam_name)
-            os.remove(bai_name)
+#             os.remove(bam_name)
+#             os.remove(bai_name)
 
-            print(f"Analysis of {sample_id} completed!")
+#             print(f"Analysis of {sample_id} completed!")
 
+import threading
+import queue
+
+def downloader_thread(bam_files, result_queue):
+    """Runs continuously in the background: downloads one sample after another."""
+    for r134_file in bam_files:
+        bam_name, bai_name, bam_id, bai_id = process_bam(r134_file)
+        subprocess.run(["dx", "download", bam_id, "--no-progress"])
+        print(f"bam file successfully downloaded: {bam_name}")
+        subprocess.run(["dx", "download", bai_id, "--no-progress"])
+        print(f"bai file successfully downloaded: {bai_name}")
+        result_queue.put((bam_name, bai_name, bam_id, bai_id))
+    result_queue.put(None)  # sentinel: signals "no more downloads coming"
+
+def alu_analysis(dx_project_id, bed, window, polyA_window, threshold, min_polyA_len, merge_gap):
+    r134_list = project_scan(dx_project_id)
+    bam_files = [f for f in r134_list if "bam" in f and "refined" not in f]
+
+    if not bam_files:
+        print("No matching BAM files found.")
+        return
+
+    result_queue = queue.Queue()
+    dl_thread = threading.Thread(target=downloader_thread, args=(bam_files, result_queue))
+    dl_thread.start()
+
+    while True:
+        item = result_queue.get()
+        if item is None:
+            break  # all downloads finished and consumed
+
+        bam_name, bai_name, bam_id, bai_id = item
+
+        match = re.search(r"(NGS[^_]+_\d+)", bam_name)
+        if match:
+            sample_id = match.group(1)
+            print(sample_id)
+        else:
+            raise ValueError(f"Could not extract sample ID from BAM file: {bam_name}")
+
+        print("starting sequence search")
+        print(bam_name + " + " + bai_name)
+        sequence_search(bam_id, bai_id, sample_id, bam_name, bai_name)
+        print("sequence search done")
+
+        scramble_analysis(bam_name, sample_id, bed, window, polyA_window, threshold, min_polyA_len, merge_gap)
+
+        os.remove(bam_name)
+        os.remove(bai_name)
+        print(f"Analysis of {sample_id} completed!")
+
+    dl_thread.join()
 
 
 def main():
