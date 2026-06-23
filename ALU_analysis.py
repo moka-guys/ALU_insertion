@@ -139,7 +139,7 @@ def scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_p
     print(f"Running bcftools filtering...")
     run_command(f"bgzip /app/output/{sample_id}.vcf -f")
     run_command(f"bcftools index /app/output/{sample_id}.vcf.gz")
-    run_command(f"bcftools view -i 'ALT=\"<INS:ME:ALU>\"' /app/output/{sample_id}.vcf.gz -o /app/output/{sample_id}_ALU_ins.vcf")
+    run_command(f"bcftools view -i 'ALT=\"<INS:ME:ALU>\" && QUAL>=100' /app/output/{sample_id}.vcf.gz -o /app/output/{sample_id}_ALU_ins.vcf")
 
     if bed:
         run_command(f"bgzip /app/output/{sample_id}_ALU_ins.vcf -f")
@@ -228,7 +228,7 @@ def process_one_sample(item, bed, window, polyA_window, threshold, min_polyA_len
     os.remove(bai_name)
     print(f"Analysis of {sample_id} completed!")
 
-def alu_analysis(dx_project_id, bed, window, polyA_window, threshold, min_polyA_len, merge_gap, max_concurrent=3):
+def alu_analysis(dx_project_id, bed, window, polyA_window, threshold, min_polyA_len, merge_gap, max_concurrent=10s):
     r134_list = project_scan(dx_project_id)
     bam_files = [f for f in r134_list if "bam" in f and "refined" not in f]
 
