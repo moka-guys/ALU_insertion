@@ -170,7 +170,7 @@ def detect_coverage_tracts(
     window: int,
     threshold: float,
     min_length: int = 3,
-    min_coverage: int = 30
+    min_coverage: int = 500
 ) -> List[CoverageTract]:
     """ Detect regions of significant coverage change where coverage change occurs within a window.
     Tracts are defined by sharp increases (start) and sharp decreases (end).
