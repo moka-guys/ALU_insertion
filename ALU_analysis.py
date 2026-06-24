@@ -5,6 +5,9 @@ import re
 import pysam
 import os
 from collections import Counter
+import threading
+import queue
+from concurrent.futures import ThreadPoolExecutor
 
 def run_command(command, check=True):
     """ Executes a command and returns the result."""
@@ -79,57 +82,71 @@ def sequence_search(bam_id, bai_id,sample_id, bam_name,bai_name):
             
     #seq_used_by_oxford 
     ox_seq = "AGAACTGGCGGCTTAAGAACATCAACAGCATTGGCCGGGCGCGGTGGCTCACG"
-                
-    # testing a few combinations on our positive controls
-    for seq, name, threshold in zip(
-        [right_seq, long_right_seq, ox_seq, ngs683_38_left_flank_seq],
-        ["500", "long_right", "ox", "left_flank"],
-        [500, 100, 100, 100]):                
-        positions = []
-                
-        with pysam.AlignmentFile(bam_name, "rb") as bam:
-            for read in bam.fetch():
-                if read.query_sequence and seq in read.query_sequence:
-                    match_start = read.query_sequence.index(seq)  # 0-based read position
 
-                    # get_aligned_pairs maps each read position to its genomic position
-                    aligned_pairs = read.get_aligned_pairs(matches_only=False)
+    sequences = {
+        "500": (right_seq, 500),
+        "long_right": (long_right_seq, 100),
+        "ox": (ox_seq, 100),
+        "left_flank": (ngs683_38_left_flank_seq, 100),
+    }
 
-                    last_genome_pos = None
-                    last_chrom = None
-                    for read_pos, genome_pos in aligned_pairs:
+    positions = {name: [] for name in sequences}
+
+    with pysam.AlignmentFile(bam_name, "rb") as bam:
+        for read in bam.fetch():
+            if not read.query_sequence:
+                continue
+
+            for name, (seq, threshold) in sequences.items():
+                if seq not in read.query_sequence:
+                    continue
+
+                match_start = read.query_sequence.index(seq)  # 0-based read position
+
+                # get_aligned_pairs maps each read position to its genomic position
+                aligned_pairs = read.get_aligned_pairs(matches_only=False)
+
+                last_genome_pos = None
+                last_chrom = None
+                for read_pos, genome_pos in aligned_pairs:
+                    if genome_pos is not None:
+                        last_genome_pos = genome_pos
+                        last_chrom = read.reference_name
+                    if read_pos == match_start:
                         if genome_pos is not None:
-                            last_genome_pos = genome_pos
-                            last_chrom = read.reference_name
-                        if read_pos == match_start:
-                            if genome_pos is not None:
-                                positions.append(f"{read.reference_name}:{genome_pos + 1}")
-                            elif last_genome_pos is not None:
-                                # seq falls in an insertion — use the last mapped genomic position
-                                positions.append(f"{last_chrom}:{last_genome_pos + 1}")
-                            break
+                            positions[name].append(f"{read.reference_name}:{genome_pos + 1}")
+                        elif last_genome_pos is not None:
+                            # seq falls in an insertion — use the last mapped genomic position
+                            positions[name].append(f"{last_chrom}:{last_genome_pos + 1}")
+                        break
 
-        results = [(pos, count) for pos, count in Counter(positions).most_common() if count > threshold]
+    for name, (seq, threshold) in sequences.items():
+        results = [
+            (pos, count)
+            for pos, count in Counter(positions[name]).most_common()
+            if count > threshold
+        ]
 
         if results:
-            #with open(f"{sample_id}_output_{name}.txt", "w") as out: # for local testing
-            with open(f"/app/output/{sample_id}_output_{name}.txt", "w") as out: # for in image testing
+            with open(f"/app/output/{sample_id}_output_{name}.txt", "w") as out:
                 for pos, count in results:
                     out.write(f"{count} {pos}\n")
 
         print(f"--- subanalysis {name} complete for {sample_id}!")
+                
 
-def scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_polyA_len,merge_gap):
+def scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_polyA_len,merge_gap,work_dir):
+    os.makedirs(work_dir, exist_ok=True)
     print(f"Running cluster_identifier...")
     run_command(
-        f"cluster_identifier -m 10 -s 3 {bam_name} > /app/output/{sample_id}.clusters.txt"
+        f"cluster_identifier -m 10 -s 3 {bam_name} > {work_dir}/{sample_id}.clusters.txt"
     )
 
     print(f"Running SCRAMble.R...")
     run_command(
         f"Rscript --vanilla /app/cluster_analysis/bin/SCRAMble.R "
-        f"--out-name /app/output/{sample_id} "
-        f"--cluster-file /app/output/{sample_id}.clusters.txt "
+        f"--out-name {work_dir}/{sample_id} "
+        f"--cluster-file {work_dir}/{sample_id}.clusters.txt "
         f"--install-dir /app/cluster_analysis/bin "
         f"--mei-refs /app/cluster_analysis/resources/MEI_consensus_seqs.fa "
         f"--ref /app/data/reference.fa "
@@ -137,17 +154,17 @@ def scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_p
     )
 
     print(f"Running bcftools filtering...")
-    run_command(f"bgzip /app/output/{sample_id}.vcf -f")
-    run_command(f"bcftools index /app/output/{sample_id}.vcf.gz")
-    run_command(f"bcftools view -i 'ALT=\"<INS:ME:ALU>\" && QUAL>=100' /app/output/{sample_id}.vcf.gz -o /app/output/{sample_id}_ALU_ins.vcf")
+    run_command(f"bgzip {work_dir}/{sample_id}.vcf -f")
+    run_command(f"bcftools index {work_dir}/{sample_id}.vcf.gz")
+    run_command(f"bcftools view -i 'ALT=\"<INS:ME:ALU>\" && QUAL>=100' {work_dir}/{sample_id}.vcf.gz -o {work_dir}/{sample_id}_ALU_ins.vcf")
 
     if bed:
-        run_command(f"bgzip /app/output/{sample_id}_ALU_ins.vcf -f")
-        run_command(f"bcftools index /app/output/{sample_id}_ALU_ins.vcf.gz")
-        run_command(f"bcftools view -R {bed} /app/output/{sample_id}_ALU_ins.vcf.gz -o /app/output/{sample_id}_specified_region_ALU_ins.vcf")
-        vcf_path = f"/app/output/{sample_id}_specified_region_ALU_ins.vcf"
+        run_command(f"bgzip {work_dir}/{sample_id}_ALU_ins.vcf -f")
+        run_command(f"bcftools index {work_dir}/{sample_id}_ALU_ins.vcf.gz")
+        run_command(f"bcftools view -R {bed} {work_dir}{sample_id}_ALU_ins.vcf.gz -o {work_dir}/{sample_id}_specified_region_ALU_ins.vcf")
+        vcf_path = f"{work_dir}/{sample_id}_specified_region_ALU_ins.vcf"
     else:
-        vcf_path = f"/app/output/{sample_id}_ALU_ins.vcf"
+        vcf_path = f"{work_dir}/{sample_id}_ALU_ins.vcf"
 
     print(f"Running ALU analysis...")
     python_command = (
@@ -164,43 +181,6 @@ def scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_p
 
     run_command(python_command)
 
-
-# def alu_analysis(dx_project_id,bed,window,polyA_window,threshold,min_polyA_len,merge_gap):  
-#     r134_list = project_scan(dx_project_id)
-#     for file in r134_list:
-        
-#         # filter R134 files to those that are non-refined bam files
-#         # extract bam and bai ids.
-#         if ("bam" in file and "refined" not in file):
-#             # Extract bam and bai name and ids
-#             bam_name,bai_name,bam_id,bai_id = process_bam(file)
-            
-#             # Extract sample ID from BAM file name
-#             match = re.search(r"(NGS[^_]+_\d+)", bam_name)
-#             if match:
-#                 sample_id = match.group(1)
-#                 print(sample_id)
-#             else:
-#                 raise ValueError(f"Could not extract sample ID from BAM file: {bam_name}")
-
-#             # Run sequence search analysis
-#             print("starting sequence search")
-#             print(bam_name + " + " + bai_name)
-#             sequence_search(bam_id,bai_id,sample_id,bam_name,bai_name)
-#             print("sequence search done")
-
-#             # Run scramble analysis
-#             scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_polyA_len,merge_gap)
-
-#             os.remove(bam_name)
-#             os.remove(bai_name)
-
-#             print(f"Analysis of {sample_id} completed!")
-
-import threading
-import queue
-from concurrent.futures import ThreadPoolExecutor
-
 def downloader_thread(bam_files, result_queue):
     """Runs continuously in the background: downloads one sample after another."""
     for r134_file in bam_files:
@@ -212,6 +192,8 @@ def downloader_thread(bam_files, result_queue):
         result_queue.put((bam_name, bai_name, bam_id, bai_id))
     result_queue.put(None)  # sentinel: signals "no more downloads coming"
 
+import shutil
+
 def process_one_sample(item, bed, window, polyA_window, threshold, min_polyA_len, merge_gap):
     bam_name, bai_name, bam_id, bai_id = item
     match = re.search(r"(NGS[^_]+_\d+)", bam_name)
@@ -220,15 +202,22 @@ def process_one_sample(item, bed, window, polyA_window, threshold, min_polyA_len
         print(sample_id)
     else:
         raise ValueError(f"Could not extract sample ID from BAM file: {bam_name}")
+
+    work_dir = f"/app/work/{sample_id}"
+
     print(f"starting sequence search for {sample_id}")
     sequence_search(bam_id, bai_id, sample_id, bam_name, bai_name)
     print(f"sequence search done for {sample_id}")
-    scramble_analysis(bam_name, sample_id, bed, window, polyA_window, threshold, min_polyA_len, merge_gap)
+    scramble_analysis(bam_name, sample_id, bed, window, polyA_window, threshold, min_polyA_len, merge_gap,work_dir)
     os.remove(bam_name)
     os.remove(bai_name)
+
+    # remove intermediate files generated by scramble_analysis for this sample
+    shutil.rmtree(work_dir, ignore_errors=True)
+
     print(f"Analysis of {sample_id} completed!")
 
-def alu_analysis(dx_project_id, bed, window, polyA_window, threshold, min_polyA_len, merge_gap, max_concurrent=10s):
+def alu_analysis(dx_project_id, bed, window, polyA_window, threshold, min_polyA_len, merge_gap, max_concurrent=5):
     r134_list = project_scan(dx_project_id)
     bam_files = [f for f in r134_list if "bam" in f and "refined" not in f]
 
@@ -236,7 +225,7 @@ def alu_analysis(dx_project_id, bed, window, polyA_window, threshold, min_polyA_
         print("No matching BAM files found.")
         return
 
-    result_queue = queue.Queue()
+    result_queue = queue.Queue(maxsize=max_concurrent)
     dl_thread = threading.Thread(target=downloader_thread, args=(bam_files, result_queue))
     dl_thread.start()
 
