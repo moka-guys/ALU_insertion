@@ -558,7 +558,11 @@ def main():
     #df.to_csv(csv_path, index=False)
 
     # Creating a separate CSV containing only ALUs where coverage abnormalities and polyAs were detected
-    df_high_confidence = df[df['Evidence'] == 'BOTH']
+    if df.empty or 'Evidence' not in df.columns:
+        print(f"No ALU insertion events with evidence found for {sample_id}")
+        df_high_confidence = pd.DataFrame(columns=['Chrom','Stat','End','HighCoverageTracts','PolyAReads','Evidence'])
+    else:
+        df_high_confidence = df[df['Evidence'] == 'BOTH']
     if not df_high_confidence.empty:
         csv_hc_path = f"/app/output/{args.id}_ALU_analysis_high_confidence.csv"
         df_high_confidence.to_csv(csv_hc_path, index=False)
