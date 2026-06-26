@@ -212,7 +212,6 @@ def process_one_sample(item, bed, window, polyA_window, threshold, min_polyA_len
         scramble_analysis(bam_name, sample_id, bed, window, polyA_window, threshold, min_polyA_len, merge_gap,work_dir)
     except:
         scramble_failed.append(sample_id)
-        continue
     os.remove(bam_name)
     os.remove(bai_name)
 
