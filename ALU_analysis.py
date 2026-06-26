@@ -194,7 +194,7 @@ def downloader_thread(bam_files, result_queue):
 
 import shutil
 
-def process_one_sample(item, bed, window, polyA_window, threshold, min_polyA_len, merge_gap):
+def process_one_sample(item, bed, window, polyA_window, threshold, min_polyA_len, merge_gap, scramble_failed):
     bam_name, bai_name, bam_id, bai_id = item
     match = re.search(r"(NGS[^_]+_\d+)", bam_name)
     if match:
@@ -208,7 +208,11 @@ def process_one_sample(item, bed, window, polyA_window, threshold, min_polyA_len
     print(f"starting sequence search for {sample_id}")
     sequence_search(bam_id, bai_id, sample_id, bam_name, bai_name)
     print(f"sequence search done for {sample_id}")
-    scramble_analysis(bam_name, sample_id, bed, window, polyA_window, threshold, min_polyA_len, merge_gap,work_dir)
+    try:
+        scramble_analysis(bam_name, sample_id, bed, window, polyA_window, threshold, min_polyA_len, merge_gap,work_dir)
+    except:
+        scramble_failed.append(sample_id)
+        continue
     os.remove(bam_name)
     os.remove(bai_name)
 
@@ -220,6 +224,7 @@ def process_one_sample(item, bed, window, polyA_window, threshold, min_polyA_len
 def alu_analysis(dx_project_id, bed, window, polyA_window, threshold, min_polyA_len, merge_gap, max_concurrent=5):
     r134_list = project_scan(dx_project_id)
     bam_files = [f for f in r134_list if "bam" in f and "refined" not in f]
+    scramble_failed = []
 
     if not bam_files:
         print("No matching BAM files found.")
@@ -237,13 +242,18 @@ def alu_analysis(dx_project_id, bed, window, polyA_window, threshold, min_polyA_
                 break  # all downloads finished and consumed
             futures.append(
                 executor.submit(
-                    process_one_sample, item, bed, window, polyA_window, threshold, min_polyA_len, merge_gap
+                    process_one_sample, item, bed, window, polyA_window, threshold, min_polyA_len, merge_gap, scramble_failed
             ))
 
         for f in futures:
             f.result()
 
     dl_thread.join()
+    with open ('/app/output/failed_scramble.txt', 'w') as f:
+        for sample in scramble_failed:
+            f.write('%s\n' %sample)
+    
+    f.close()
     
 
 
