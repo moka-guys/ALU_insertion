@@ -161,7 +161,7 @@ def scramble_analysis(bam_name,sample_id,bed,window,polyA_window,threshold,min_p
     if bed:
         run_command(f"bgzip {work_dir}/{sample_id}_ALU_ins.vcf -f")
         run_command(f"bcftools index {work_dir}/{sample_id}_ALU_ins.vcf.gz")
-        run_command(f"bcftools view -R {bed} {work_dir}{sample_id}_ALU_ins.vcf.gz -o {work_dir}/{sample_id}_specified_region_ALU_ins.vcf")
+        run_command(f"bcftools view -R {bed} {work_dir}/{sample_id}_ALU_ins.vcf.gz -o {work_dir}/{sample_id}_specified_region_ALU_ins.vcf")
         vcf_path = f"{work_dir}/{sample_id}_specified_region_ALU_ins.vcf"
     else:
         vcf_path = f"{work_dir}/{sample_id}_ALU_ins.vcf"
