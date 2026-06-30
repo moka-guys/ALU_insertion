@@ -248,11 +248,13 @@ def alu_analysis(dx_project_id, bed, window, polyA_window, threshold, min_polyA_
             f.result()
 
     dl_thread.join()
-    with open ('/app/output/failed_scramble.txt', 'w') as f:
-        for sample in scramble_failed:
-            f.write('%s\n' %sample)
+
+    if scramble_failed:
+        with open ('/app/output/failed_scramble.txt', 'w') as f:
+            for sample in scramble_failed:
+                f.write('%s\n' %sample)
     
-    f.close()
+        f.close()
     
 
 
